@@ -1,0 +1,34 @@
+{
+  "name": "reflib-medline",
+  "version": "1.0.3",
+  "description": "Parser for RIS files",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hash-bang/Reflib-RIS.git"
+  },
+  "keywords": [
+    "reflib",
+    "references",
+    "library",
+    "ris",
+    "parser"
+  ],
+  "author": "Matt Carter <m@ttcarter.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hash-bang/Reflib-RIS/issues"
+  },
+  "homepage": "https://github.com/hash-bang/Reflib-RIS",
+  "dependencies": {
+    "async-chainable": "^2.3.1",
+    "isstream": "^0.1.2"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^3.2.0"
+  },
+  "scripts": {
+    "test": "mocha"
+  }
+}
