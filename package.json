@@ -1,6 +1,6 @@
 {
-  "name": "reflib-medline",
-  "version": "1.0.3",
+  "name": "reflib-ris",
+  "version": "1.0.0",
   "description": "Parser for RIS files",
   "main": "index.js",
   "repository": {
