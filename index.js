@@ -30,7 +30,7 @@ var _fieldTranslations = { // Map of RIS fields to RefLib fields
 	'IS  ': {reflib: 'number'},
 	'J1  ': {reflib: 'journal'},
 	'JF  ': {reflib: 'journal'},
-	'KW  ': {reflib: 'tags', isArray: true},
+	'KW  ': {reflib: 'keywords', isArray: true},
 	'LA  ': {reflib: 'language'},
 	'N1  ': {reflib: 'notes'},
 	'N2  ': {reflib: 'abstract'},

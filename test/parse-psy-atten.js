@@ -48,7 +48,7 @@ describe('RIS parser - test #1', function() {
 		expect(sample.abstract).to.match(/^Resting state functional connectivity/);
 		expect(sample.abstract).to.match(/defined as the perception/);
 		expect(sample.abstract).to.match(/PsycINFO Database Record/);
-		expect(sample.tags).to.deep.equal(['*Tinnitus', '*Functional Magnetic Resonance Imaging', 'Behavioral Assessment', 'Brain', 'Hearing Disorders', 'Schizophrenia']);
+		expect(sample.keywords).to.deep.equal(['*Tinnitus', '*Functional Magnetic Resonance Imaging', 'Behavioral Assessment', 'Brain', 'Hearing Disorders', 'Schizophrenia']);
 	});
 
 	it('should return random sample (The need for research in the education of the deaf and hard-of-hearing.)', function() {
