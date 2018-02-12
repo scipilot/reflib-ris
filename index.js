@@ -44,13 +44,11 @@ var _fieldTranslations = { // Map of RIS fields to RefLib fields
 };
 
 var _fieldTranslationsReverse = _(_fieldTranslations) // Calculate the key/val lookup - this time with the key being the reflib key
-	.map(function(tran, id) {
+	.map((tran, id) => {
 		tran.ris = id;
 		return tran;
 	})
-	.mapKeys(function(tran) {
-		return tran.reflib;
-	})
+	.mapKeys(tran => tran.reflib)
 	.value();
 
 // Lookup object of RIS => RefLib types
@@ -115,9 +113,7 @@ var _typeTranslations = {
 	'UNPB': 'unpublished',
 };
 var _typeTranslationsReverse = _(_typeTranslations)
-	.map(function(tran, id) {
-		return {reflib: tran, ris: id};
-	})
+	.map((tran, id) => ({reflib: tran, ris: id}))
 	.uniqBy('reflib')
 	.mapKeys('reflib')
 	.mapValues('ris')
@@ -215,20 +211,13 @@ function _pusher(stream, isLast, child, settings) {
 		delete child.pages
 	}
 
-	_(child)
-		.omitBy(function(data, key) {
-			return !_fieldTranslationsReverse[key]; // Known translation?
-		})
-		.forEach(function(data, key) {
-			var field = _fieldTranslationsReverse[key];
-			if (field.isArray) {
-				data.map(function(item) {
-					buffer += field.ris + '- ' + item + '\n';
-				});
-			} else {
-				buffer += field.ris + '- ' + data + '\n';
-			}
-		})
+	buffer += _(child)
+		.map((v, k) => ({key: k, value: v}))
+		.filter(field => !! _fieldTranslationsReverse[field.key]) // We know the key type?
+		.map(field => _.isArray(field.value) ? field.value.map(v => ({key: field.key, value: v})) : field) // Expand array type values
+		.flatten() // Transform back into a iterable array
+		.map(field => `${_fieldTranslationsReverse[field.key].ris}- ${field.value}`)
+		.join('\n');
 
 	stream.write(_.trimEnd(buffer) + (!isLast ? '\n' : ''));
 };
