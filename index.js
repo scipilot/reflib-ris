@@ -218,6 +218,7 @@ function _pusher(stream, isLast, child, settings) {
 		.flatten() // Transform back into a iterable array
 		.map(field => `${_fieldTranslationsReverse[field.key].ris}- ${field.value}`)
 		.join('\n');
+	buffer += '\nER  - \n';
 
 	stream.write(_.trimEnd(buffer) + (!isLast ? '\n' : ''));
 };
