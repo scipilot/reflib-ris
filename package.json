@@ -21,13 +21,13 @@
   },
   "homepage": "https://github.com/hash-bang/Reflib-RIS",
   "dependencies": {
-    "async-chainable": "^2.3.1",
+    "async-chainable": "^2.4.0",
     "isstream": "^0.1.2"
   },
   "devDependencies": {
-    "chai": "^3.5.0",
-    "lodash": "^4.17.5",
-    "mocha": "^3.2.0"
+    "chai": "^4.2.0",
+    "lodash": "^4.17.11",
+    "mocha": "^5.2.0"
   },
   "scripts": {
     "test": "mocha"
