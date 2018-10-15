@@ -125,54 +125,55 @@ function parse(content) {
 	var parser = function(content) { // Perform parser in async so the function will return the emitter otherwise an error could be thrown before the emitter is ready
 		var ref = {};
 		var refField; // Currently appending ref field
-		(content + "\nTY  - FAKE\n").split(/\n/).forEach(function(line) {
-			var bits = /^(....)- (.*)$/.exec(_.trimEnd(line));
-			if (bits) {
-				if (bits[1] == 'TY  ') { // Start of new reference
-					if (!_.isEmpty(ref)) {
-						// Final reference cleanup {{{
-						// Pages {{{
-						if (ref.startPage || ref.endPage) {
-							ref.pages = (ref.startPage && ref.endPage) ? ref.startPage + '-' + ref.endPage
-								: (ref.startPage) ? ref.startPage
-								: '?';
-							delete ref.startPage;
-							delete ref.endPage;
-						}
-						// }}}
-						// Type {{{
-						ref.type = ref.type && _typeTranslations[ref.type] ? _typeTranslations[ref.type] : 'unknown';
-						// }}}
-						// }}}
-						emitter.emit('ref', _.mapValues(ref, function(v, k) {
-							if (!_.isString(v)) return v;
-							return _.trimEnd(v);
-						}));
+		content.split(/\n/).forEach(function(line) {
+			if (line.startsWith('ER  -')) { // Start of new reference
+				if (!_.isEmpty(ref)) {
+					// Final reference cleanup {{{
+					// Pages {{{
+					if (ref.startPage || ref.endPage) {
+						ref.pages = (ref.startPage && ref.endPage) ? ref.startPage + '-' + ref.endPage
+							: (ref.startPage) ? ref.startPage
+							: '?';
+						delete ref.startPage;
+						delete ref.endPage;
 					}
+					// }}}
+					// Type {{{
+					ref.type = ref.type && _typeTranslations[ref.type] ? _typeTranslations[ref.type] : 'unknown';
+					// }}}
+					// }}}
+					emitter.emit('ref', _.mapValues(ref, function(v, k) {
+						if (!_.isString(v)) return v;
+						return _.trimEnd(v);
+					}));
 					ref = {};
+					refField = undefined;
 				}
+			} else {
+				var bits = /^(....)- (.*)$/.exec(_.trimEnd(line));
+				if (bits) {
+					if (_fieldTranslations[bits[1]]) { // Only accept known fields
+						refField = _fieldTranslations[bits[1]];
+						if (refField.isArray) {
+							if (!ref[refField.reflib]) ref[refField.reflib] = [];
 
-				if (_fieldTranslations[bits[1]]) { // Only accept known fields
-					refField = _fieldTranslations[bits[1]];
-					if (refField.isArray) {
-						if (!ref[refField.reflib]) ref[refField.reflib] = [];
-
-						if (refField.split) {
-							bits[2].split(/\s*,\s*/).forEach(function(i) { ref[refField.reflib].push(i) });
+							if (refField.split) {
+								bits[2].split(/\s*,\s*/).forEach(function(i) { ref[refField.reflib].push(i) });
+							} else {
+								ref[refField.reflib].push(bits[2]);
+							}
 						} else {
-							ref[refField.reflib].push(bits[2]);
+							ref[refField.reflib] = bits[2];
 						}
 					} else {
-						ref[refField.reflib] = bits[2];
+						refField = null;
 					}
-				} else {
-					refField = null;
-				}
-			} else if (refField) {
-				if (_.isArray(ref[refField.reflib])) {
-					ref[refField.reflib].push(line);
-				} else {
-					ref[refField.reflib] += '\n' + line;
+				} else if (refField) {
+					if (_.isArray(ref[refField.reflib])) {
+						ref[refField.reflib].push(line);
+					} else {
+						ref[refField.reflib] += '\n' + line;
+					}
 				}
 			}
 		});
@@ -229,6 +230,7 @@ function output(options) {
 		defaultType: 'journalArticle', // Assume this reference type if we are not provided with one
 		content: [],
 	});
+
 	async()
 		// Sanity checks {{{
 		.then(function(next) {
