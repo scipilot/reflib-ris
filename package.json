@@ -1,6 +1,6 @@
 {
   "name": "reflib-ris",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Parser for RIS files",
   "main": "index.js",
   "repository": {
