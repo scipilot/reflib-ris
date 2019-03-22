@@ -52,6 +52,7 @@ describe('RIS output - array input', ()=> {
 
 	it('should return content', ()=> {
 		expect(output).to.be.ok;
+		expect(output).to.be.a('string');
 	});
 
 	it('should translate back into a collection', ()=> {

@@ -5,42 +5,42 @@ var async = require('async-chainable');
 var events = require('events');
 
 var _fieldTranslations = { // Map of RIS fields to RefLib fields
-	'A1  ': {reflib: 'authors', isArray: true},
-	'A2  ': {reflib: 'authors', isArray: true, split: true},
-	'A3  ': {reflib: 'authors', isArray: true, split: true},
-	'A4  ': {reflib: 'authors', isArray: true, split: true},
-	'AB  ': {reflib: 'abstract'},
-	'AU  ': {reflib: 'authors', isArray: true},
-	'C1  ': {reflib: 'custom1'},
-	'C2  ': {reflib: 'custom2'},
-	'C3  ': {reflib: 'custom3'},
-	'C4  ': {reflib: 'custom4'},
-	'C5  ': {reflib: 'custom5'},
-	'C6  ': {reflib: 'custom6'},
-	'C7  ': {reflib: 'custom7'},
-	'C8  ': {reflib: 'custom8'},
-	'CA  ': {reflib: 'caption'},
-	'CY  ': {reflib: 'address'},
-	'DA  ': {reflib: 'date'},
-	'DB  ': {reflib: 'database'},
-	'DO  ': {reflib: 'doi'},
-	'DP  ': {reflib: 'databaseProvider'},
-	'EP  ': {reflib: 'endPage'},
-	'ET  ': {reflib: 'edition'},
-	'IS  ': {reflib: 'number'},
-	'J1  ': {reflib: 'journal'},
-	'JF  ': {reflib: 'journal'},
-	'KW  ': {reflib: 'keywords', isArray: true},
-	'LA  ': {reflib: 'language'},
-	'N1  ': {reflib: 'notes'},
-	'N2  ': {reflib: 'abstract'},
-	'SN  ': {reflib: 'isbn'},
-	'SP  ': {reflib: 'startPage'},
-	'T1  ': {reflib: 'title'},
-	'TI  ': {reflib: 'title'},
-	'TY  ': {reflib: 'type'},
-	'VL  ': {reflib: 'volume'},
-	'Y1  ': {reflib: 'date'},
+	'A1': {reflib: 'authors', isArray: true},
+	'A2': {reflib: 'authors', isArray: true, split: true},
+	'A3': {reflib: 'authors', isArray: true, split: true},
+	'A4': {reflib: 'authors', isArray: true, split: true},
+	'AB': {reflib: 'abstract'},
+	'AU': {reflib: 'authors', isArray: true},
+	'C1': {reflib: 'custom1'},
+	'C2': {reflib: 'custom2'},
+	'C3': {reflib: 'custom3'},
+	'C4': {reflib: 'custom4'},
+	'C5': {reflib: 'custom5'},
+	'C6': {reflib: 'custom6'},
+	'C7': {reflib: 'custom7'},
+	'C8': {reflib: 'custom8'},
+	'CA': {reflib: 'caption'},
+	'CY': {reflib: 'address'},
+	'DA': {reflib: 'date'},
+	'DB': {reflib: 'database'},
+	'DO': {reflib: 'doi'},
+	'DP': {reflib: 'databaseProvider'},
+	'EP': {reflib: 'endPage'},
+	'ET': {reflib: 'edition'},
+	'IS': {reflib: 'number'},
+	'J1': {reflib: 'journal'},
+	'JF': {reflib: 'journal'},
+	'KW': {reflib: 'keywords', isArray: true},
+	'LA': {reflib: 'language'},
+	'N1': {reflib: 'notes'},
+	'N2': {reflib: 'abstract'},
+	'SN': {reflib: 'isbn'},
+	'SP': {reflib: 'startPage'},
+	'T1': {reflib: 'title'},
+	'TI': {reflib: 'title'},
+	'TY': {reflib: 'type'},
+	'VL': {reflib: 'volume'},
+	'Y1': {reflib: 'date'},
 };
 
 var _fieldTranslationsReverse = _(_fieldTranslations) // Calculate the key/val lookup - this time with the key being the reflib key
@@ -119,6 +119,13 @@ var _typeTranslationsReverse = _(_typeTranslations)
 	.mapValues('ris')
 	.value();
 
+var config = {
+	endMatcher: /^ER\s+?-/,
+	fieldMatcher: /^([A-Z0-9]{2}\s+?)- (.*)$/,
+	outputFieldPadding: 4,
+	outputField: field => _.padEnd(field, 4, ' '),
+};
+
 function parse(content) {
 	var emitter = new events.EventEmitter();
 
@@ -126,7 +133,7 @@ function parse(content) {
 		var ref = {};
 		var refField; // Currently appending ref field
 		content.split(/\n/).forEach(function(line) {
-			if (line.startsWith('ER  -')) { // Start of new reference
+			if (config.endMatcher.test(line)) { // Start of new reference
 				if (!_.isEmpty(ref)) {
 					// Final reference cleanup {{{
 					// Pages {{{
@@ -150,8 +157,9 @@ function parse(content) {
 					refField = undefined;
 				}
 			} else {
-				var bits = /^(....)- (.*)$/.exec(_.trimEnd(line));
+				var bits = config.fieldMatcher.exec(_.trimEnd(line));
 				if (bits) {
+					bits[1] = _.trimEnd(bits[1]); // Remove suffix spaces
 					if (_fieldTranslations[bits[1]]) { // Only accept known fields
 						refField = _fieldTranslations[bits[1]];
 						if (refField.isArray) {
@@ -201,8 +209,7 @@ function parse(content) {
 };
 
 function _pusher(stream, isLast, child, settings) {
-	var buffer = '';
-	buffer += 'TY  - ' + _typeTranslationsReverse[child.type || settings.defaultType] + '\n';
+	var buffer = config.outputField('TY') + '- ' + _typeTranslationsReverse[child.type || settings.defaultType] + '\n';
 	delete child.type;
 
 	if (child.pages) {
@@ -217,7 +224,7 @@ function _pusher(stream, isLast, child, settings) {
 		.filter(field => !! _fieldTranslationsReverse[field.key]) // We know the key type?
 		.map(field => _.isArray(field.value) ? field.value.map(v => ({key: field.key, value: v})) : field) // Expand array type values
 		.flatten() // Transform back into a iterable array
-		.map(field => `${_fieldTranslationsReverse[field.key].ris}- ${field.value}`)
+		.map(field => config.outputField(_fieldTranslationsReverse[field.key].ris) + '- ' + field.value)
 		.join('\n');
 	buffer += '\nER  - \n';
 
