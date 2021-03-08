@@ -1,8 +1,14 @@
-var _ = require('lodash').mixin({
-	isStream: require('isstream'),
-});
+var _ = {
+	flatten: require('lodash/flatten'),
+	map: require('lodash/map'),
+	mapValues: require('lodash/mapValues'),
+	padEnd: require('lodash/padEnd'),
+	trimEnd: require('lodash/trimEnd'),
+};
+
 var async = require('async-chainable');
 var events = require('events');
+var stream = require('stream');
 
 var _fieldTranslations = { // Map of RIS fields to RefLib fields
 	'A1': {reflib: 'authors', isArray: true},
@@ -43,13 +49,10 @@ var _fieldTranslations = { // Map of RIS fields to RefLib fields
 	'Y1': {reflib: 'date'},
 };
 
-var _fieldTranslationsReverse = _(_fieldTranslations) // Calculate the key/val lookup - this time with the key being the reflib key
-	.map((tran, id) => {
-		tran.ris = id;
-		return tran;
-	})
-	.mapKeys(tran => tran.reflib)
-	.value();
+var _fieldTranslationsReverse = Object.fromEntries(
+	Object.entries(_fieldTranslations) // Calculate the key/val lookup - this time with the key being the reflib key
+		.map(([key, props]) => [props.reflib, {...props, ris: key}])
+);
 
 // Lookup object of RIS => RefLib types
 var _typeTranslations = {
@@ -112,12 +115,12 @@ var _typeTranslations = {
 	'THES': 'thesis',
 	'UNPB': 'unpublished',
 };
-var _typeTranslationsReverse = _(_typeTranslations)
-	.map((tran, id) => ({reflib: tran, ris: id}))
-	.uniqBy('reflib')
-	.mapKeys('reflib')
-	.mapValues('ris')
-	.value();
+
+var _typeTranslationsReverse = Object.fromEntries(
+	Object.entries(_typeTranslations)
+		.map(([key, val]) => [val, key])
+)
+
 
 var config = {
 	endMatcher: /^ER\s+?-/,
@@ -134,7 +137,7 @@ function parse(content) {
 		var refField; // Currently appending ref field
 		content.split(/\n/).forEach(function(line) {
 			if (config.endMatcher.test(line)) { // Start of new reference
-				if (!_.isEmpty(ref)) {
+				if (ref) {
 					// Final reference cleanup {{{
 					// Pages {{{
 					if (ref.startPage || ref.endPage) {
@@ -150,7 +153,7 @@ function parse(content) {
 					// }}}
 					// }}}
 					emitter.emit('ref', _.mapValues(ref, function(v, k) {
-						if (!_.isString(v)) return v;
+						if (typeof v != 'string') return v;
 						return _.trimEnd(v);
 					}));
 					ref = {};
@@ -177,7 +180,7 @@ function parse(content) {
 						refField = null;
 					}
 				} else if (refField) {
-					if (_.isArray(ref[refField.reflib])) {
+					if (Array.isArray(ref[refField.reflib])) {
 						ref[refField.reflib].push(line);
 					} else {
 						ref[refField.reflib] += '\n' + line;
@@ -188,11 +191,11 @@ function parse(content) {
 		emitter.emit('end');
 	};
 
-	if (_.isString(content)) {
+	if (typeof content == 'string') {
 		setTimeout(function() { parser(content) });
-	} else if (_.isBuffer(content)) {
+	} else if (Buffer.isBuffer(content)) {
 		setTimeout(function() { parser(content.toString('utf-8')) });
-	} else if (_.isStream(content)) {
+	} else if (content instanceof stream.Stream) {
 		var buffer = '';
 		content
 			.on('data', function(data) {
@@ -219,11 +222,11 @@ function _pusher(stream, isLast, child, settings) {
 		delete child.pages
 	}
 
-	buffer += _(child)
-		.map((v, k) => ({key: k, value: v}))
-		.filter(field => !! _fieldTranslationsReverse[field.key]) // We know the key type?
-		.map(field => _.isArray(field.value) ? field.value.map(v => ({key: field.key, value: v})) : field) // Expand array type values
-		.flatten() // Transform back into a iterable array
+	buffer += _.flatten(
+		_.map(child, (v, k) => ({key: k, value: v}))
+			.filter(field => !! _fieldTranslationsReverse[field.key]) // We know the key type?
+			.map(field => Array.isArray(field.value) ? field.value.map(v => ({key: field.key, value: v})) : field) // Expand array type values
+	) // Transform back into a iterable array
 		.map(field => config.outputField(_fieldTranslationsReverse[field.key].ris) + '- ' + field.value)
 		.join('\n');
 	buffer += '\nER  - \n';
@@ -232,11 +235,12 @@ function _pusher(stream, isLast, child, settings) {
 };
 
 function output(options) {
-	var settings = _.defaults(options, {
+	var settings = {
 		stream: null,
 		defaultType: 'journalArticle', // Assume this reference type if we are not provided with one
 		content: [],
-	});
+		...options,
+	};
 
 	async()
 		// Sanity checks {{{
@@ -247,17 +251,17 @@ function output(options) {
 		// }}}
 		// References {{{
 		.then(function(next) {
-			if (_.isFunction(settings.content)) { // Callback
+			if (typeof settings.content == 'function') { // Callback
 				var batchNo = 0;
 				var fetcher = function() {
 					settings.content(function(err, data, isLast) {
 						if (err) return emitter.error(err);
-						if (_.isArray(data) && data.length > 0) { // Callback provided array
+						if (Array.isArray(data) && data.length > 0) { // Callback provided array
 							data.forEach(function(d, dIndex) {
 								_pusher(settings.stream, isLast && dIndex == data.length-1, d, settings);
 							});
 							setTimeout(fetcher);
-						} else if(!_.isArray(data) && _.isObject(data)) { // Callback provided single ref
+						} else if(!Array.isArray(data) && typeof data == 'object') { // Callback provided single ref
 							_pusher(settings.stream, isLast, data, settings);
 							setTimeout(fetcher);
 						} else { // End of stream
@@ -266,12 +270,12 @@ function output(options) {
 					}, batchNo++);
 				};
 				fetcher();
-			} else if (_.isArray(settings.content)) { // Array of refs
+			} else if (Array.isArray(settings.content)) { // Array of refs
 				settings.content.forEach(function(d, dIndex) {
 					_pusher(settings.stream, dIndex == settings.content.length -1, d, settings);
 				});
 				next();
-			} else if (_.isObject(settings.content)) { // Single ref
+			} else if (Array.isObject(settings.content)) { // Single ref
 				_pusher(settings.stream, true, data, settings);
 				next();
 			}
